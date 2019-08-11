@@ -15,7 +15,6 @@ class UI_object:
     def __init__(self):
         self.x = None
         self.y = None
-        self.velocity = 0
         self.direction = (1, 0)
 
     def get_uiable(self):
@@ -43,7 +42,6 @@ class Asteroid(UI_object):
         if y is not None:
             self.y = y
         self.direction = random_choice(list(self.direcs.keys()))
-        self.velocity = 1 # TO BE TESTED
 
     def get_uiable(self):
         return ("AST", self.x, self.y)
@@ -59,7 +57,7 @@ class Planet(UI_object):
             self.y = y
 
     def get_uiable(self):
-        return ("PLA", self.x)
+        return ("PLA", self.x, self.y)
 
 class Pirate(UI_object):
     def __init__(self, x=None, y=None):
@@ -79,7 +77,6 @@ class Bullet(UI_object):
         UI_object.__init__(self)
         self.x = x
         self.y = y
-        self.velocity = 9 # TO BE TESTED
         self.direction = direction
 
     def get_uiable(self):
@@ -97,9 +94,8 @@ class Map(UI_object):
 
 def move(ui_object):
     direction = ui_object.direction
-    velocity = ui_object.velocity
-    ui_object.x += direction[0] * velocity
-    ui_object.y += direction[1] * velocity
+    ui_object.x += direction[0] * 1 #velocity
+    ui_object.y += direction[1] * 1 #velocity
     if(ui_object.x < 0):
         ui_object.x = 0
     if(ui_object.y < 0):
@@ -111,16 +107,21 @@ def move(ui_object):
 
 
 def com_read_line(com):
-    previous = None
-    while True:
-        ans = ""
-        while not ans.endswith("\r\n"):
-            try:
-                ans += com.read().decode('utf-8')
-            except serial.SerialTimeoutException:
-                if previous is not None:
-                    return previous
-        previous = ans
+    print("CRL called")
+    ans = ""
+    while not ans.endswith("\r\n"):
+        try:
+            ans += com.read().decode('utf-8')
+        except:
+            pass
+    return ans
+
+def read_from_coms(coms):
+    ans = []
+    for com in coms:
+        local = com_read_line(com)
+        ans += list(json.loads(local).items())
+    return dict(ans)
 
 
 ui_objects = {'YOU': None, 'AST': [], 'PLA': None, 'PIR': [], 'BUL': [], 'MAP': {}}
@@ -139,18 +140,28 @@ def get_uiable_info(objects):
     return ans
 
 def init():
-    com = serial.Serial("/dev/ttyUSB0", 115200, timeout=0.01) # TO BE TESTED?
+    ans = []
+    i = 0
+    while True:
+        try:
+            ans.append(serial.Serial(f"/dev/ttyUSB{i}", 115200)) # TO BE TESTED?
+        except:
+            break
+        i += 1
+    if not len(ans):
+        raise Exception("Couldn't load any ttyUSBs")
+
     ui_objects['YOU'] = Spaceship()
-    for i in range(MAP_SIZE[0] * MAP_SIZE[1] // 2000): # TO BE TESTED
+    for i in range(MAP_SIZE[0] * MAP_SIZE[1] // 20000): # TO BE TESTED
         ui_objects['AST'].append(Asteroid())
-    for i in range(MAP_SIZE[0] * MAP_SIZE[1] // 2000): # TO BE TESTED
+    for i in range(MAP_SIZE[0] * MAP_SIZE[1] // 20000): # TO BE TESTED
         ui_objects['PIR'].append(Pirate())
     ui_objects['PLA'] = Planet()
     for gamer in ['pilot', 'shooter', 'navigator']:
         ui_objects['MAP'][gamer] = Map(gamer)
-    return com
+    return ans
 
-def main(com):
+def main(coms):
     last_shoot = time() # shoots are allowed not more often than one time per second
 
     while True:
@@ -165,14 +176,28 @@ def main(com):
             move(obj)
         move(ui_objects['YOU'])
 
+        removable_pirates = []
+        removable_bullets = []
+        for pidx, pirate in enumerate(ui_objects['PIR']):
+            for bidx, bullet in enumerate(ui_objects['BUL']):
+                if(pirate.x == bullet.x) and (pirate.y == bullet.y):
+                    removable_pirates.append(pidx)
+                    removable_bullets.append(bidx)
+        removable_pirates = sorted(removable_pirates, reverse=True)
+        removable_bullets = sorted(removable_bullets, reverse=True)
+        for idx in removable_pirates:
+            del ui_objects['PIR'][idx]
+        for idx in removable_bullets:
+            del ui_objects['BUL'][idx]
 
-        line = com_read_line()
-        data = json.loads(line)
+
+        temp = None
+        data = read_from_coms(coms)
         for key, value in data.items():
             if key == 'pilot_joys_1':
                 ui_objects['YOU'].direction = tuple(value)
             elif key == 'pilot_potent_1':
-                ui_objects['YOU'].velocity = value // 100
+                temp = value
 
             elif key == 'navigator_joys_1':
                 ui_objects['MAP']['navigator'].x, ui_objects['MAP'].y = value
@@ -183,17 +208,18 @@ def main(com):
                 ui_objects['MAP']['shooter'].x = value
             elif key == 'shooter_potent_2':
                 ui_objects['MAP']['shooter'].y = value
-            elif key == 'shooter_button_1':
+            elif key == 'shooter_butt_1':
                 if(time() - last_shoot < 1):
                     continue
                 coordinates = (ui_objects['YOU'].x, ui_objects['YOU'].y)
                 coordinates = tuple(i + 1 for i in coordinates)
-                bullet = Bullet(*coordinates, ui_objects['MAP']['shooter'].direction)
+                shooter_map = ui_objects['MAP']['shooter']
+                bullet = Bullet(*coordinates, (shooter_map.x, shooter_map.y))
 
             else:
-                raise ValueError("Unknown JSON key got from hardware")
+                raise ValueError(f"Unknown JSON key {key} got from hardware")
 
-        result = ui_main(get_uiable_info(ui_objects), *MAP_SIZE)
+        result = ui_main(get_uiable_info(ui_objects), *MAP_SIZE, temp)
         if(result == "SHOW_MUST_GO_ON"):
             continue
         elif(result == "CRASHED"):
@@ -203,6 +229,7 @@ def main(com):
         return 0
 
 if __name__ == "__main__":
-    com = init()
-    main(com)
-    com.close()
+    coms = init()
+    main(coms)
+    for com in coms:
+        com.close()
