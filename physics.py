@@ -125,8 +125,21 @@ def com_read_line(com):
 
 ui_objects = {'YOU': None, 'AST': [], 'PLA': None, 'PIR': [], 'BUL': [], 'MAP': {}}
 
+def get_uiable_info(objects):
+    ans = []
+    for obj in ui_objects.values():
+        if type(obj) is list:
+            for ui_object in obj:
+                ans.append(ui_object.get_uiable())
+        elif type(obj) is dict:
+            for ui_object in obj.values():
+                ans.append(ui_object.get_uiable())
+        else:
+            ans.append(obj.get_uiable())
+    return ans
+
 def init():
-    com = serial.Serial("/dev/ttyUSB0", 9600, timeout=0.01) # TO BE TESTED?
+    com = serial.Serial("/dev/ttyUSB0", 115200, timeout=0.01) # TO BE TESTED?
     ui_objects['YOU'] = Spaceship()
     for i in range(MAP_SIZE[0] * MAP_SIZE[1] // 2000): # TO BE TESTED
         ui_objects['AST'].append(Asteroid())
@@ -150,6 +163,7 @@ def main(com):
 
         for obj in ui_objects['AST'] + ui_objects['BUL'] + ui_objects['PIR']:
             move(obj)
+        move(ui_objects['YOU'])
 
 
         line = com_read_line()
@@ -174,22 +188,19 @@ def main(com):
                     continue
                 coordinates = (ui_objects['YOU'].x, ui_objects['YOU'].y)
                 coordinates = tuple(i + 1 for i in coordinates)
-                bullet = Bullet(*coordinates, ui_objects['YOU'].direction)
+                bullet = Bullet(*coordinates, ui_objects['MAP']['shooter'].direction)
 
             else:
                 raise ValueError("Unknown JSON key got from hardware")
 
-        to_ui = []
-        for obj in ui_objects.values():
-            if type(obj) is list:
-                for ui_object in obj:
-                    to_ui.append(ui_object.get_uiable())
-            elif type(obj) is dict:
-                for ui_object in obj.values():
-                    to_ui.append(ui_object.get_uiable())
-            else:
-                to_ui.append(obj.get_uiable())
-        ui_main(to_ui, *MAP_SIZE)
+        result = ui_main(get_uiable_info(ui_objects), *MAP_SIZE)
+        if(result == "SHOW_MUST_GO_ON"):
+            continue
+        elif(result == "CRASHED"):
+            print("Game over. You losed!")
+        else:
+            print("Game over. You win!")
+        return 0
 
 if __name__ == "__main__":
     com = init()
