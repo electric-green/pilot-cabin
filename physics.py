@@ -22,7 +22,7 @@ class UI_object:
         raise Exception("UI_object must be inheritanced, it doesn't have it's own type")
 
 class Spaceship(UI_object):
-    def __init__(self, x, y):
+    def __init__(self, x=None, y=None):
         UI_object.__init__(self)
         self.x = 0
         self.y = 0
@@ -42,7 +42,7 @@ class Asteroid(UI_object):
             self.x = x
         if y is not None:
             self.y = y
-        self.direction = random_choice(self.direcs.keys())
+        self.direction = random_choice(list(self.direcs.keys()))
         self.velocity = 1 # TO BE TESTED
 
     def get_uiable(self):
@@ -100,6 +100,14 @@ def move(ui_object):
     velocity = ui_object.velocity
     ui_object.x += direction[0] * velocity
     ui_object.y += direction[1] * velocity
+    if(ui_object.x < 0):
+        ui_object.x = 0
+    if(ui_object.y < 0):
+        ui_object.y = 0
+    if(ui_object.x > MAP_SIZE[0]):
+        ui_object.x = MAP_SIZE[0]
+    if(ui_object.y > MAP_SIZE[1]):
+        ui_object.y
 
 
 def com_read_line(com):
@@ -126,7 +134,7 @@ def init():
         ui_objects['PIR'].append(Pirate())
     ui_objects['PLA'] = Planet()
     for gamer in ['pilot', 'shooter', 'navigator']:
-        ui_objects['MAP'][gamer] = Map()
+        ui_objects['MAP'][gamer] = Map(gamer)
     return com
 
 def main(com):
@@ -162,12 +170,26 @@ def main(com):
             elif key == 'shooter_potent_2':
                 ui_objects['MAP']['shooter'].y = value
             elif key == 'shooter_button_1':
+                if(time() - last_shoot < 1):
+                    continue
                 coordinates = (ui_objects['YOU'].x, ui_objects['YOU'].y)
                 coordinates = tuple(i + 1 for i in coordinates)
                 bullet = Bullet(*coordinates, ui_objects['YOU'].direction)
 
             else:
                 raise ValueError("Unknown JSON key got from hardware")
+
+        to_ui = []
+        for obj in ui_objects.values():
+            if type(obj) is list:
+                for ui_object in obj:
+                    to_ui.append(ui_object.get_uiable())
+            elif type(obj) is dict:
+                for ui_object in obj.values():
+                    to_ui.append(ui_object.get_uiable())
+            else:
+                to_ui.append(obj.get_uiable())
+        ui_main(to_ui, *MAP_SIZE)
 
 if __name__ == "__main__":
     com = init()
