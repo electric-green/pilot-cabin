@@ -7,11 +7,11 @@ from time import time
 from gameUI import main as ui_main
 
 
-MAP_SIZE = (1000, 200)
+MAP_SIZE = (1000, 30)
 
 
 class UI_object:
-    direcs = {(0, -1): 0, (1, 0): 1, (0, 1): 2, (-1, 0): 3, (1, -1): 1, (1, 1): 1, (-1, 1): 3, (-1, -1): 3}
+    direcs = {(0, -1): 0, (1, 0): 1, (0, 1): 2, (-1, 0): 3, (1, -1): 1, (1, 1): 1, (-1, 1): 3, (-1, -1): 3, (0, 0): 1}
     def __init__(self):
         self.x = None
         self.y = None
@@ -50,7 +50,7 @@ class Planet(UI_object):
     def __init__(self, x=None, y=None):
         UI_object.__init__(self)
         self.x = MAP_SIZE[0] - 5 # TO BE TESTED
-        self.y = MAP_SIZE[1] - 5 # TO BE TESTED
+        self.y = 0 # TO BE TESTED
         if x is not None:
             self.x = x
         if y is not None:
@@ -103,11 +103,10 @@ def move(ui_object):
     if(ui_object.x > MAP_SIZE[0]):
         ui_object.x = MAP_SIZE[0]
     if(ui_object.y > MAP_SIZE[1]):
-        ui_object.y
+        ui_object.y = MAP_SIZE[1]
 
 
 def com_read_line(com):
-    print("CRL called")
     ans = ""
     while not ans.endswith("\r\n"):
         try:
@@ -120,7 +119,12 @@ def read_from_coms(coms):
     ans = []
     for com in coms:
         local = com_read_line(com)
-        ans += list(json.loads(local).items())
+        try:
+            ans += list(json.loads(local).items())
+        except:
+            print()
+            print(local)
+            exit(1)
     return dict(ans)
 
 
@@ -152,9 +156,9 @@ def init():
         raise Exception("Couldn't load any ttyUSBs")
 
     ui_objects['YOU'] = Spaceship()
-    for i in range(MAP_SIZE[0] * MAP_SIZE[1] // 20000): # TO BE TESTED
+    for i in range(MAP_SIZE[0] * MAP_SIZE[1] // 5000): # LESS 10000
         ui_objects['AST'].append(Asteroid())
-    for i in range(MAP_SIZE[0] * MAP_SIZE[1] // 20000): # TO BE TESTED
+    for i in range(MAP_SIZE[0] * MAP_SIZE[1] // 5000): # LESS 10000
         ui_objects['PIR'].append(Pirate())
     ui_objects['PLA'] = Planet()
     for gamer in ['pilot', 'shooter', 'navigator']:
@@ -176,18 +180,18 @@ def main(coms):
             move(obj)
         move(ui_objects['YOU'])
 
-        removable_pirates = []
-        removable_bullets = []
+        removable_pirates = set()
+        removable_bullets = set()
         for pidx, pirate in enumerate(ui_objects['PIR']):
             for bidx, bullet in enumerate(ui_objects['BUL']):
-                if(pirate.x == bullet.x) and (pirate.y == bullet.y):
-                    removable_pirates.append(pidx)
-                    removable_bullets.append(bidx)
+                if abs(pirate.x - bullet.x) <= 1 and abs(pirate.y - bullet.y) <= 1:
+                    removable_pirates.add(pidx)
+                    removable_bullets.add(bidx)
         removable_pirates = sorted(removable_pirates, reverse=True)
         removable_bullets = sorted(removable_bullets, reverse=True)
-        for idx in removable_pirates:
+        for idx in sorted(list(removable_pirates), reverse=True):
             del ui_objects['PIR'][idx]
-        for idx in removable_bullets:
+        for idx in sorted(list(removable_bullets), reverse=True):
             del ui_objects['BUL'][idx]
 
 
@@ -195,9 +199,11 @@ def main(coms):
         data = read_from_coms(coms)
         for key, value in data.items():
             if key == 'pilot_joys_1':
-                ui_objects['YOU'].direction = tuple(value)
+                ui_objects['YOU'].direction = (value[0], -value[1])
             elif key == 'pilot_potent_1':
                 temp = value
+            elif key == 'pilot_butt_1':
+                pass # Not used in this game
 
             elif key == 'navigator_joys_1':
                 ui_objects['MAP']['navigator'].x, ui_objects['MAP'].y = value
@@ -205,17 +211,17 @@ def main(coms):
                 ui_objects['MAP']['navigator'].scale = value
 
             elif key == 'shooter_potent_1':
-                ui_objects['MAP']['shooter'].x = value
+                ui_objects['MAP']['shooter'].x = (1023 - value) // 341 - 1
             elif key == 'shooter_potent_2':
-                ui_objects['MAP']['shooter'].y = value
+                ui_objects['MAP']['shooter'].y = value // 341 - 1
             elif key == 'shooter_butt_1':
-                if(time() - last_shoot < 1):
+                if(time() - last_shoot < 1) or (value == 0):
                     continue
                 coordinates = (ui_objects['YOU'].x, ui_objects['YOU'].y)
-                coordinates = tuple(i + 1 for i in coordinates)
                 shooter_map = ui_objects['MAP']['shooter']
                 bullet = Bullet(*coordinates, (shooter_map.x, shooter_map.y))
-
+                #move(bullet)
+                ui_objects['BUL'].append(bullet)
             else:
                 raise ValueError(f"Unknown JSON key {key} got from hardware")
 
