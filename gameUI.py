@@ -4,24 +4,25 @@ import time
 import numpy as np
 
 SIZE = (120, 30)
-SYMBOLS = [' ', '_', '|', '/', '\\', 'O', '^', '>', 'v', '<', '*', '+', '-', '@']
+SYMBOLS = [' ', '_', '|', '/', '\\', 'O', '^', '>', 'v', '<', '*', '+', '-', '@', 'o', 'O', '0', 'I']
 
 
 def main(data, x, y):
-        # rows, columns = os.popen('stty size', 'r').read().split()
-        columns, rows = SIZE
+        rows, columns = os.popen('stty size', 'r').read().split()
+        # columns, rows = SIZE
         if int(rows) == SIZE[1] and int(columns) == SIZE[0]:
-                arr = np.zeros((y, y)) #clear
+                arr = np.zeros((y, x)) #clear
 
                 for elem in data:
                         elem_y = elem[2]
                         elem_x = elem[1]
                         if elem[0] == 'YOU':
                                 if arr[elem_y, elem_x] != 0:
-                                        if arr[elem.y, elem.x] == 10 or arr[elem_y, elem_x] == 5:
-                                                return 'CRASHED'
-                                        else:
+                                        return 'OOOO'
+                                        if arr[elem.y, elem.x] == 16:
                                                 return 'LANDED'
+                                        else:
+                                                return 'CRASHED'
                                 YOU(arr, elem_y, elem_x, elem[3])
                         if elem[0] == 'AST':
                                 AST(arr, elem_y, elem_x)
@@ -43,9 +44,13 @@ def YOU(arr, y, x, angl):
 
 def AST(arr, y, x):
         ast = [' _____ ', '/ o   \\', '|   O |', '\_0___/']
-
-        arr[y-2:y+2, x-4:x+3] = ast
-        # arr[y, x] = 5
+        ans = []
+        for line in ast:
+                l = []
+                for elem in line:
+                        l.append(SYMBOLS.index(elem))
+                ans.append(l)
+        arr[y-2:y+2, x-4:x+3] = ans
         return arr
 
 def PLA(arr, y, x):
@@ -73,7 +78,7 @@ def symbols_update(arr):
 
 if __name__ == "__main__":
         while True:
-                for i in range(3):
-                        test_data = [['YOU', 5, 6, i], ['AST', 5, 5], ['PLA', 6, 11], ['PIR', 8, 15], ['BUL', 9, 9]]
-                        main(test_data)
-                        time.sleep(4)
+                for i in range(10):
+                        test_data = [['YOU', i, 5, 1], ['AST', 7, 5], ['PLA', 6, 11], ['PIR', 8, 15], ['BUL', 9, 9]]
+                        print(main(test_data, 120, 30))
+                        time.sleep(1)
