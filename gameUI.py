@@ -4,13 +4,14 @@ import time
 import numpy as np
 
 SIZE = (120, 30)
-SYMBOLS = [' ', '_', '|', '/', '\\', 'O', '^', '>', 'v', '<', '*', '+', '-']
+SYMBOLS = [' ', '_', '|', '/', '\\', 'O', '^', '>', 'v', '<', '*', '+', '-', '@']
 
 
-def main(data):
-        rows, columns = os.popen('stty size', 'r').read().split()
+def main(data, x, y):
+        # rows, columns = os.popen('stty size', 'r').read().split()
+        columns, rows = SIZE
         if int(rows) == SIZE[1] and int(columns) == SIZE[0]:
-                arr = np.zeros((int(SIZE[1]), int(SIZE[0]))) #clear
+                arr = np.zeros((y, y)) #clear
 
                 for elem in data:
                         elem_y = elem[2]
@@ -41,7 +42,10 @@ def YOU(arr, y, x, angl):
         return arr
 
 def AST(arr, y, x):
-        arr[y, x] = 5
+        ast = [' _____ ', '/ o   \\', '|   O |', '\_0___/']
+
+        arr[y-2:y+2, x-4:x+3] = ast
+        # arr[y, x] = 5
         return arr
 
 def PLA(arr, y, x):
@@ -56,7 +60,7 @@ def PIR(arr, y, x):
         return arr
 
 def BUL(arr, y, x):
-        arr[y, x] = 11
+        arr[y, x] = 13
         return arr
 
 def symbols_update(arr):
@@ -70,6 +74,6 @@ def symbols_update(arr):
 if __name__ == "__main__":
         while True:
                 for i in range(3):
-                        test_data = [['YOU', 5, 6, i], ['AST', 0, 0], ['PLA', 6, 11], ['PIR', 8, 15], ['BUL', 9, 9]]
+                        test_data = [['YOU', 5, 6, i], ['AST', 5, 5], ['PLA', 6, 11], ['PIR', 8, 15], ['BUL', 9, 9]]
                         main(test_data)
                         time.sleep(4)
